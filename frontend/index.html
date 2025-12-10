@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Esyasoft Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body class="dark">
+  <div class="header">
+    <button class="hamburger" id="toggleSidebar">☰</button>
+    <h1>Esyasoft Assistant</h1>
+    <div class="header-controls">
+      <button class="theme-btn" id="themeToggle">🌙</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <button class="new-chat" id="newChatBtn">
+        <span class="icon">➕</span>
+        <span class="label">New Chat</span>
+      </button>
+      <div id="conversationList"></div>
+    </div>
+
+    <div class="chat-area">
+      <div class="messages" id="messages"></div>
+
+      <div class="suggestions" id="suggestionsBox">
+        <button class="suggest-btn">Show top 5 rows</button>
+        <button class="suggest-btn">Which meter has highest forecasted load kwh</button>
+        <button class="suggest-btn">How many different meters are there</button>
+      </div>
+
+      <div class="input-container">
+        <div class="input-wrapper">
+          <input type="text" id="userInput" placeholder="Ask a question about your database..." />
+          <button class="voice-btn" id="voiceBtn">🎤</button>
+        </div>
+        <button id="sendBtn">➤</button>
+      </div>
+    </div>
+  </div>
+<script src="script.js"></script>
+
+</body>
+</html>
