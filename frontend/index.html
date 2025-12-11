@@ -1,48 +1,51 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Esyasoft Assistant</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="dark">
+
+<body class="light">
   <div class="header">
-    <button class="hamburger" id="toggleSidebar">☰</button>
-    <h1>Esyasoft Assistant</h1>
+    <button class="hamburger" id="toggleSidebar">>></button>
+    <h1>Esyasoft AI CoPilot</h1>
     <div class="header-controls">
       <button class="theme-btn" id="themeToggle">🌙</button>
     </div>
   </div>
 
   <div class="layout">
+    <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
       <button class="new-chat" id="newChatBtn">
-        <span class="icon">➕</span>
+        <span class="icon">+</span>
         <span class="label">New Chat</span>
       </button>
+
       <div class="conversations-container">
         <div id="conversationList"></div>
       </div>
-      
+
       <div class="sidebar-footer">
         <div class="user-info">
-          <div class="user-avatar">
-            <span>👤</span>
-          </div>
+          <div class="user-avatar">U</div>
           <div class="user-details">
             <span id="nameDisplay" class="user-name"></span>
             <span id="emailDisplay" class="user-email"></span>
           </div>
         </div>
-        <button class="logout-btn" id="logoutBtn" title="Logout">
-          <span class="logout-icon">🚪</span>
+
+        <button class="logout-btn" id="logoutBtn">
           <span class="logout-text">Logout</span>
         </button>
       </div>
     </div>
 
+    <!-- CHAT AREA -->
     <div class="chat-area">
       <div class="messages" id="messages"></div>
 
@@ -55,12 +58,14 @@
       <div class="input-container">
         <div class="input-wrapper">
           <input type="text" id="userInput" placeholder="Ask a question about your database..." />
-          <button class="voice-btn" id="voiceBtn">🎤</button>
+          <button class="voice-btn" id="voiceBtn">Mic</button>
         </div>
-        <button id="sendBtn">➤</button>
+        <button id="sendBtn">Send</button>
       </div>
     </div>
   </div>
-<script src="script.js"></script>
+
+  <script src="script.js"></script>
 </body>
+
 </html>

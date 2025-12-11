@@ -1,5 +1,5 @@
 import sqlite3
-from db import get_table_schema
+from db import get_table_schema, get_tables_with_columns
 
 conn = sqlite3.connect("mydata.db")
 cur = conn.cursor()
@@ -9,12 +9,13 @@ cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
 tables = cur.fetchall()
 print("Tables:", tables)
 # print("Schema: ",get_table_schema("users"))
+print("columns of all tables: ",get_tables_with_columns())
 
 # Fetch data from 'users'
+cur.execute("SELECT * FROM token_count;")
 # cur.execute("SELECT * FROM forecasted_table;")
-cur.execute("SELECT * FROM users;")
-# data = cur.fetchall()
-# print("Data: ", data)
+data = cur.fetchall()
+print("Data: ", data)
 
 # rows = cur.fetchall()
 # for row in rows:
