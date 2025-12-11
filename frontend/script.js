@@ -4,22 +4,69 @@ let currentConversationId = null;
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
+let authToken = null;
+let currentUser = null;
 
 const messagesContainer = document.getElementById("messages");
 const suggestionsBox = document.getElementById("suggestionsBox");
 const voiceBtn = document.getElementById("voiceBtn");
 const userInput = document.getElementById("userInput");
+const API_URL = "http://127.0.0.1:8000";
 
-// Initialize browser speech recognition
 let speechRecognition = null;
 
-// Load saved chats (use in-memory storage instead of localStorage)
-window.onload = () => {
+// Check authentication on load
+window.onload = async () => {
+  await checkAuth();
   loadConversationList();
   initBrowserSpeechRecognition();
 };
 
-// Initialize browser's built-in speech recognition
+// Check if user is authenticated
+async function checkAuth() {
+  authToken = sessionStorage.getItem('token');
+  const userJson = sessionStorage.getItem('user');
+  
+  if (!authToken || !userJson) {
+    window.location.href = './../backend/auth.html';
+    return;
+  }
+  
+  currentUser = JSON.parse(userJson);
+  // console.log("test4", currentUser)
+  
+  // Verify token is still valid
+  try {
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    
+    if (!res.ok) {
+      throw new Error('Invalid token');
+    }
+    
+    // Update email display
+    document.getElementById('nameDisplay').textContent = currentUser.name;
+    document.getElementById('emailDisplay').textContent = currentUser.email;
+    
+  } catch (error) {
+    console.error('Auth check failed:', error);
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    window.location.href = './../backend/auth.html';
+  }
+}
+
+// Logout
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('user');
+  window.location.href = './../backend/auth.html';
+});
+
+// Initialize browser speech recognition
 function initBrowserSpeechRecognition() {
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -30,88 +77,46 @@ function initBrowserSpeechRecognition() {
     speechRecognition.lang = 'en-US';
     speechRecognition.maxAlternatives = 1;
     
-    // Event handlers for speech recognition
     speechRecognition.onstart = () => {
-      console.log("Speech recognition started");
       isRecording = true;
       voiceBtn.classList.add("recording");
       voiceBtn.innerText = "⏹️";
-      voiceBtn.title = "Click to stop recording";
     };
     
     speechRecognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      console.log("Recognized text:", transcript);
-      
-      // Fill input field with recognized text
       userInput.value = transcript;
       userInput.focus();
-      
-      // Optional: Auto-send after recognition
-      // Uncomment the next line if you want to auto-send
-      // sendMessage(transcript);
     };
     
     speechRecognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      
-      let errorMessage = "Speech recognition error: ";
+      let errorMessage = "Speech recognition error";
       switch(event.error) {
         case 'no-speech':
           errorMessage = "No speech detected. Please try again.";
           break;
         case 'audio-capture':
-          errorMessage = "No microphone found. Please check your microphone.";
+          errorMessage = "No microphone found.";
           break;
         case 'not-allowed':
-          errorMessage = "Microphone access denied. Please allow microphone access.";
+          errorMessage = "Microphone access denied.";
           break;
-        case 'network':
-          errorMessage = "Network error. Please check your internet connection.";
-          break;
-        default:
-          errorMessage = `Speech recognition error: ${event.error}`;
       }
-      
       appendMessage(errorMessage, "bot");
     };
     
     speechRecognition.onend = () => {
-      console.log("Speech recognition ended");
       isRecording = false;
       voiceBtn.classList.remove("recording");
       voiceBtn.innerText = "🎤";
-      voiceBtn.title = "Click to start voice input";
     };
-    
-    console.log("✅ Browser speech recognition available");
-  } else {
-    console.log("❌ Browser speech recognition not available");
-    // Fallback to our backend solution
-    setupBackendVoiceRecognition();
   }
 }
 
-// Fallback: Setup backend voice recognition (if browser API not available)
-function setupBackendVoiceRecognition() {
-  console.log("Setting up backend voice recognition as fallback");
-  
-  voiceBtn.onclick = async () => {
-    if (!isRecording) {
-      await startRecording();
-    } else {
-      await stopRecordingAndProcess();
-    }
-  };
-}
-
-// Save all conversations (store in memory only)
 function saveAll() {
-  // Data persists only during session
   console.log("Conversations saved in memory");
 }
 
-// Get conversation context (last 7 exchanges with SQL queries)
 function getConversationContext(conversationId) {
   if (!conversationId || !conversations[conversationId]) {
     return [];
@@ -120,7 +125,6 @@ function getConversationContext(conversationId) {
   const messages = conversations[conversationId].messages;
   const context = [];
   
-  // Extract query-SQL pairs from messages
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.type === "user" && msg.sql) {
@@ -131,7 +135,6 @@ function getConversationContext(conversationId) {
     }
   }
   
-  // Return last 7 exchanges
   return context.slice(-7);
 }
 
@@ -145,7 +148,6 @@ document.getElementById("newChatBtn").onclick = () => {
   messagesContainer.innerHTML = "";
   suggestionsBox.classList.remove("hidden");
   
-  // Stop speech recognition if active
   if (speechRecognition && isRecording) {
     speechRecognition.stop();
   }
@@ -198,7 +200,6 @@ function appendMessage(content, type, save = true, isHTML = false, isChart = fal
     msg.appendChild(chartContainer);
     messagesContainer.appendChild(msg);
     
-    // Render chart
     new Chart(canvas.getContext("2d"), chartConfig);
   } else if (isHTML) {
     msg.innerHTML = content;
@@ -219,7 +220,6 @@ function appendMessage(content, type, save = true, isHTML = false, isChart = fal
       chartConfig: isChart ? chartConfig : null
     };
     
-    // Store SQL query with user messages for context
     if (type === "user" && sqlQuery) {
       messageData.sql = sqlQuery;
     }
@@ -229,7 +229,7 @@ function appendMessage(content, type, save = true, isHTML = false, isChart = fal
   }
 }
 
-// Show loading animation
+// Show loading
 function showLoading() {
   const loading = document.createElement("div");
   loading.className = "loading";
@@ -243,17 +243,16 @@ function showLoading() {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Remove loading animation
+// Hide loading
 function hideLoading() {
   const loading = document.getElementById("loadingIndicator");
   if (loading) loading.remove();
 }
 
-// SEND MESSAGE
+// Send message
 async function sendMessage(text) {
   if (!text || !text.trim()) return;
 
-  // Ensure we have a conversation
   if (!currentConversationId) {
     const id = "conv_" + Date.now();
     conversations[id] = { messages: [] };
@@ -261,10 +260,7 @@ async function sendMessage(text) {
     loadConversationList();
   }
 
-  // Get conversation context (last 7 exchanges)
   const context = getConversationContext(currentConversationId);
-  
-  // Add user message (we'll update it with SQL after response)
   const userMessageIndex = conversations[currentConversationId].messages.length;
   appendMessage(text, "user", true, false, false, null, null);
   suggestionsBox.classList.add("hidden");
@@ -272,9 +268,12 @@ async function sendMessage(text) {
   showLoading();
 
   try {
-    const res = await fetch("http://127.0.0.1:8000/ask", {
+    const res = await fetch(`${API_URL}/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      },
       body: JSON.stringify({ 
         query: text,
         conversation_id: currentConversationId,
@@ -282,28 +281,33 @@ async function sendMessage(text) {
       })
     });
 
+    if (res.status === 401) {
+      hideLoading();
+      appendMessage("Session expired. Please login again.", "bot");
+      setTimeout(() => {
+        window.location.href = './../backend/auth.html';
+      }, 2000);
+      // return;
+    }
+
     const data = await res.json();
     hideLoading();
 
-    // Update the user message with the SQL query for context
     if (data.sql && conversations[currentConversationId]) {
       conversations[currentConversationId].messages[userMessageIndex].sql = data.sql;
       saveAll();
     }
 
-    // Handle errors
     if (data.result && data.result.error) {
       appendMessage(`Error: ${data.result.error}`, "bot");
       return;
     }
 
-    // Check if backend wants to display a chart
     if (data.response_type === "chart" && data.chart) {
       appendMessage("", "bot", true, false, true, data.chart);
       return;
     }
 
-    // Otherwise, render as table
     if (!data.result || !data.result.rows || data.result.rows.length === 0) {
       appendMessage("No data found.", "bot");
       return;
@@ -348,107 +352,22 @@ document.getElementById("sendBtn").onclick = async () => {
   await sendMessage(text);
 };
 
-// VOICE INPUT - Browser Speech Recognition (Primary)
+// Voice input
 voiceBtn.onclick = () => {
   if (speechRecognition) {
-    // Use browser's built-in speech recognition
     if (!isRecording) {
-      // Start speech recognition
       try {
         speechRecognition.start();
       } catch (error) {
-        console.error("Error starting speech recognition:", error);
-        appendMessage("Failed to start voice recognition. Please try again.", "bot");
+        appendMessage("Failed to start voice recognition.", "bot");
       }
     } else {
-      // Stop speech recognition
       speechRecognition.stop();
-    }
-  } else {
-    // Fallback to backend solution
-    if (!isRecording) {
-      startRecordingBackend();
-    } else {
-      stopRecordingBackend();
     }
   }
 };
 
-// BACKEND FALLBACK FUNCTIONS (if browser API not available)
-async function startRecordingBackend() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = (e) => {
-      audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'recording.wav');
-
-      // Show processing indicator
-      voiceBtn.innerText = "⏳";
-      voiceBtn.disabled = true;
-
-      try {
-        const res = await fetch("http://127.0.0.1:8000/voice", {
-          method: "POST",
-          body: formData
-        });
-
-        const data = await res.json();
-
-        if (data.success && data.text) {
-          // Fill input field with recognized text
-          userInput.value = data.text;
-          userInput.focus();
-          
-          // Show a brief success indicator
-          voiceBtn.innerText = "✓";
-          setTimeout(() => {
-            voiceBtn.innerText = "🎤";
-          }, 1000);
-        } else {
-          // Show error message
-          const errorMsg = data.error || "Could not recognize speech";
-          appendMessage(errorMsg, "bot");
-          voiceBtn.innerText = "🎤";
-        }
-      } catch (error) {
-        console.error("Voice processing error:", error);
-        appendMessage("Voice processing error. Please try again.", "bot");
-        voiceBtn.innerText = "🎤";
-      } finally {
-        voiceBtn.disabled = false;
-      }
-
-      stream.getTracks().forEach(track => track.stop());
-    };
-
-    mediaRecorder.start();
-    isRecording = true;
-    voiceBtn.classList.add("recording");
-    voiceBtn.innerText = "⏹️";
-  } catch (error) {
-    console.error("Microphone error:", error);
-    appendMessage("Microphone access denied. Please allow microphone access.", "bot");
-  }
-}
-
-function stopRecordingBackend() {
-  if (mediaRecorder) {
-    mediaRecorder.stop();
-    isRecording = false;
-    voiceBtn.classList.remove("recording");
-    voiceBtn.innerText = "🎤";
-  }
-}
-
-// Suggestion button click
+// Suggestion clicks
 document.querySelectorAll(".suggest-btn").forEach(btn => {
   btn.onclick = () => {
     userInput.value = btn.innerText;
@@ -456,7 +375,7 @@ document.querySelectorAll(".suggest-btn").forEach(btn => {
   };
 });
 
-// Enter key to send
+// Enter key
 userInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") {
     document.getElementById("sendBtn").click();
@@ -484,7 +403,7 @@ document.getElementById("themeToggle").onclick = () => {
   }
 };
 
-// Add keyboard shortcut for voice input (Ctrl+Space)
+// Keyboard shortcut
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === ' ' && !e.repeat) {
     e.preventDefault();

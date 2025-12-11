@@ -1,4 +1,5 @@
 import sqlite3
+from db import get_table_schema
 
 conn = sqlite3.connect("mydata.db")
 cur = conn.cursor()
@@ -7,12 +8,17 @@ cur = conn.cursor()
 cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
 tables = cur.fetchall()
 print("Tables:", tables)
+# print("Schema: ",get_table_schema("users"))
 
 # Fetch data from 'users'
-cur.execute("SELECT * FROM forecasted_table;")
-rows = cur.fetchall()
-for row in rows:
-    print(row)
+# cur.execute("SELECT * FROM forecasted_table;")
+cur.execute("SELECT * FROM users;")
+# data = cur.fetchall()
+# print("Data: ", data)
+
+# rows = cur.fetchall()
+# for row in rows:
+#     print(row)
 
 conn.close()
 
@@ -30,12 +36,12 @@ conn.close()
 # cur = conn.cursor()
  
 # # ---- DROP if exists ----
-# cur.execute("DROP TABLE IF EXISTS forecasted_table")
+# cur.execute("DROP TABLE IF EXISTS users")
  
 # # ---- CREATE TABLE ----
 # cur.execute(
 #     """
-#     CREATE TABLE forecasted_table (
+#     CREATE TABLE IF NOT EXISTS forecasted_table (
 #         id INTEGER PRIMARY KEY AUTOINCREMENT,
 #         meter_id TEXT NOT NULL,
 #         datetime TEXT NOT NULL,
@@ -43,6 +49,50 @@ conn.close()
 #     )
 #     """
 # )
+# cur.execute(
+#         """
+#         CREATE TABLE users (
+#             id INTEGER PRIMARY KEY AUTOINCREMENT,
+#             name TEXT NOT NULL,
+#             email TEXT NOT NULL UNIQUE, 
+#             password TEXT NOT NULL,
+#             role TEXT NOT NULL
+#         )
+#         """
+# )
+# cur.execute(
+#         """CREATE TABLE IF NOT EXISTS token_count (
+#             user_id INTEGER NOT NULL,
+#             tokens_left INTEGER NOT NULL,
+#             renewtime datetime NOT NULL,
+#             FOREIGN KEY (user_id) REFERENCES users(id)
+#         )
+#         """
+# )
+
+# cur.execute(
+#     """
+#     INSERT INTO users (name, password, email, role)
+#     VALUES
+#         ('Rishav Shah', 'pass123', 'rishav@example.com', 'admin'),
+#         ('Amit Kumar', 'amitpwd', 'amit@example.com', 'user'),
+#         ('Sneha Das', 'sneha456', 'sneha@example.com', 'user'),
+#         ('John Doe', 'johnpwd', 'john@example.com', 'moderator');
+#     """
+# )
+
+
+# conn.commit()
+# conn.close()
+
+        # INSERT INTO users (name, password, email, role)
+        #     VALUES
+        #     ('Rishav Shah', 'pass123', 'rishav@example.com', 'admin'),
+        #     ('Amit Kumar', 'amitpwd', 'amit@example.com', 'user'),
+        #     ('Sneha Das', 'sneha456', 'sneha@example.com', 'user'),
+        #     ('John Doe', 'johnpwd', 'john@example.com', 'moderator');
+
+
  
 # # ------------ Create dummy realistic data ----------
 # num_rows = 2000

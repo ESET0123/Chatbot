@@ -6,7 +6,6 @@
   <title>Esyasoft Assistant</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 <body class="dark">
   <div class="header">
@@ -23,7 +22,25 @@
         <span class="icon">➕</span>
         <span class="label">New Chat</span>
       </button>
-      <div id="conversationList"></div>
+      <div class="conversations-container">
+        <div id="conversationList"></div>
+      </div>
+      
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar">
+            <span>👤</span>
+          </div>
+          <div class="user-details">
+            <span id="nameDisplay" class="user-name"></span>
+            <span id="emailDisplay" class="user-email"></span>
+          </div>
+        </div>
+        <button class="logout-btn" id="logoutBtn" title="Logout">
+          <span class="logout-icon">🚪</span>
+          <span class="logout-text">Logout</span>
+        </button>
+      </div>
     </div>
 
     <div class="chat-area">
@@ -45,6 +62,5 @@
     </div>
   </div>
 <script src="script.js"></script>
-
 </body>
 </html>

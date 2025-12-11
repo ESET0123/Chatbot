@@ -39,7 +39,7 @@ def nl_to_sql(query: str, db_content: str, conversation_history: list = None):
 
     try:
         res = requests.post(OLLAMA_URL, json={
-            "model": "gemma3:1b",
+            "model": "gemma3:12b",
             "prompt": prompt,
             "stream": False  # Disable streaming for cleaner response
         })

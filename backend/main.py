@@ -1,11 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
-import re
 
 from db import run_sql, get_tables_with_columns
 from nl_to_sql import nl_to_sql
+from auth import (
+    get_current_user, create_user, get_user_by_email,
+    create_access_token, User, UserLogin, Token,
+    link_conversation_to_user, verify_conversation_owner, 
+    get_user_conversations
+)
 
 app = FastAPI()
 
@@ -17,8 +22,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory storage for conversation contexts (per session/conversation)
-conversation_contexts = {}
+# Per-user conversation storage
+user_conversation_contexts = {}
 
 class ConversationExchange(BaseModel):
     query: str
@@ -34,7 +39,6 @@ def should_generate_chart(query: str, result: dict) -> bool:
     if "error" in result or not result.get("rows"):
         return False
     
-    # Keywords that suggest visualization
     chart_keywords = [
         'chart', 'graph', 'plot', 'visualize', 'visual', 
         'trend', 'compare', 'comparison', 'distribution',
@@ -46,9 +50,7 @@ def should_generate_chart(query: str, result: dict) -> bool:
         if keyword in query_lower:
             return True
     
-    # Auto-chart for numeric aggregations with categories
     if len(result["columns"]) == 2 and len(result["rows"]) > 1:
-        # Check if second column contains numbers
         try:
             float(result["rows"][0][1])
             return True
@@ -65,10 +67,8 @@ def generate_chart_config(result: dict, query: str):
     if len(columns) < 2 or len(rows) == 0:
         return None
     
-    # Extract labels and data
     labels = [str(row[0]) for row in rows]
     
-    # Determine chart type from query
     query_lower = query.lower()
     chart_type = 'bar'
     
@@ -77,7 +77,6 @@ def generate_chart_config(result: dict, query: str):
     elif 'pie' in query_lower:
         chart_type = 'pie'
     
-    # Handle multiple data series
     datasets = []
     colors = [
         'rgba(102, 126, 234, 0.8)',
@@ -131,18 +130,69 @@ def generate_chart_config(result: dict, query: str):
     
     return config
 
+# Authentication endpoints
+@app.post("/auth/register", response_model=Token)
+def register(user_data: UserLogin):
+    """Register a new user"""
+    user_id = create_user(user_data.email, user_data.password)
+    
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists"
+        )
+    
+    access_token = create_access_token(user_id)
+    
+    return Token(
+        access_token=access_token,
+        user_id=user_id,
+        email=user_data.email
+    )
+
+@app.post("/auth/login", response_model=Token)
+def login(user_data: UserLogin):
+    """Login user"""
+    user = get_user_by_email(user_data.email)
+    # print("test3", user["name"])
+    
+    if not user or user["password"] != user_data.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    access_token = create_access_token(user["id"])
+    
+    return Token(
+        access_token=access_token,
+        user_id=user["id"],
+        name=user["name"] or "guest",
+        email=user["email"]
+    )
+
+@app.get("/auth/me", response_model=User)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Get current user info"""
+    return current_user
+
+# Protected query endpoint
 @app.post("/ask")
-def ask(payload: Query):
+def ask(payload: Query, current_user: User = Depends(get_current_user)):
     nl_query = payload.query
     conversation_id = payload.conversation_id
+    user_id = current_user.id
     
-    # Get or initialize conversation context
+    if user_id not in user_conversation_contexts:
+        user_conversation_contexts[user_id] = {}
+    
     if conversation_id:
-        if conversation_id not in conversation_contexts:
-            conversation_contexts[conversation_id] = []
-        conversation_history = conversation_contexts[conversation_id]
+        if conversation_id not in user_conversation_contexts[user_id]:
+            if not verify_conversation_owner(conversation_id, user_id):
+                user_conversation_contexts[user_id][conversation_id] = []
+                link_conversation_to_user(conversation_id, user_id)
+        conversation_history = user_conversation_contexts[user_id][conversation_id]
     else:
-        # Use history from frontend if provided
         conversation_history = []
         if payload.conversation_history:
             conversation_history = [
@@ -150,28 +200,18 @@ def ask(payload: Query):
                 for item in payload.conversation_history
             ]
     
-    # Get database schema
     db_content = get_tables_with_columns() 
-    print("DB Content:", db_content)
-    
-    # Generate SQL with conversation context (last 7 exchanges)
     sql_query = nl_to_sql(nl_query, db_content, conversation_history[-7:])
-    # print("Generated SQL query:", sql_query)
-    
-    # Execute SQL
     result = run_sql(sql_query)
-    # print("Result:", result)
     
-    # Store this exchange in context
     if conversation_id:
-        conversation_contexts[conversation_id].append({
+        user_conversation_contexts[user_id][conversation_id].append({
             "query": nl_query,
             "sql": sql_query
         })
-        # Keep only last 7 exchanges
-        conversation_contexts[conversation_id] = conversation_contexts[conversation_id][-7:]
+        user_conversation_contexts[user_id][conversation_id] = \
+            user_conversation_contexts[user_id][conversation_id][-7:]
     
-    # Check if we should generate a chart
     if should_generate_chart(nl_query, result):
         chart_config = generate_chart_config(result, nl_query)
         if chart_config:
@@ -188,17 +228,42 @@ def ask(payload: Query):
         "response_type": "table"
     }
 
+@app.get("/conversations")
+def list_conversations(current_user: User = Depends(get_current_user)):
+    """List all conversations for the current user"""
+    conversation_ids = get_user_conversations(current_user.id)
+    return {"conversations": conversation_ids}
+
 @app.get("/context/{conversation_id}")
-def get_context(conversation_id: str):
+def get_context(conversation_id: str, current_user: User = Depends(get_current_user)):
     """Get conversation context for a specific conversation"""
+    user_id = current_user.id
+    
+    if not verify_conversation_owner(conversation_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this conversation"
+        )
+    
+    context = user_conversation_contexts.get(user_id, {}).get(conversation_id, [])
     return {
         "conversation_id": conversation_id,
-        "context": conversation_contexts.get(conversation_id, [])
+        "context": context
     }
 
 @app.delete("/context/{conversation_id}")
-def clear_context(conversation_id: str):
+def clear_context(conversation_id: str, current_user: User = Depends(get_current_user)):
     """Clear conversation context"""
-    if conversation_id in conversation_contexts:
-        del conversation_contexts[conversation_id]
+    user_id = current_user.id
+    
+    if not verify_conversation_owner(conversation_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this conversation"
+        )
+    
+    if user_id in user_conversation_contexts:
+        if conversation_id in user_conversation_contexts[user_id]:
+            del user_conversation_contexts[user_id][conversation_id]
+    
     return {"message": "Context cleared"}
