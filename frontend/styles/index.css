@@ -46,7 +46,7 @@ body.dark .header {
 
 .header h1 {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: #15803d; /* subtle green */
 }
@@ -865,4 +865,92 @@ body.dark .chat-welcome p {
 
 .conversation-item.active .conv-date {
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* Conversation Item with Delete Button */
+.conversation-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  position: relative;
+}
+
+.conversation-item:hover {
+  background: var(--bg-hover);
+  transform: translateX(4px);
+}
+
+.conversation-item.active {
+  background: var(--primary-color, #667eea);
+  color: white;
+}
+
+.conversation-item.active .conv-date {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.conv-content {
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.conv-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conv-date {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.conv-delete-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.conversation-item:hover .conv-delete-btn {
+  opacity: 0.6;
+}
+
+.conv-delete-btn:hover {
+  opacity: 1 !important;
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+}
+
+.conversation-item.active .conv-delete-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.conv-delete-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* For dark mode */
+body.dark .conv-delete-btn:hover {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff6b6b;
 }

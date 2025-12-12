@@ -19,7 +19,7 @@ from chart_generator import should_generate_chart, generate_chart_config
 
 from auth import (
     get_current_user, create_user, get_user_by_email,
-    create_access_token, User, UserLogin, Token,
+    create_access_token, User, UserLogin, UserRegister, Token,
     link_conversation_to_user, verify_conversation_owner, 
     get_user_conversations
 )
@@ -56,16 +56,18 @@ class Query(BaseModel):
 
 # ----------- AUTH ENDPOINTS -----------
 @app.post("/auth/register", response_model=Token)
-def register(user_data: UserLogin):
+def register(user_data: UserRegister):
     logger.info("=" * 60)
     logger.info("🔐 REGISTER ENDPOINT HIT")
+    logger.info(f"Name: {user_data.name}")
     logger.info(f"Email: {user_data.email}")
+    logger.info(f"Role: {user_data.role}")
 
-    user_id = create_user(user_data.email, user_data.password)
-    logger.info(f"User created with ID: {user_id}")
+    user_id = create_user(user_data.name, user_data.email, user_data.password, user_data.role)
+    logger.info(f"User creation result: {user_id}")
 
     if user_id is None:
-        logger.error("❌ Email already exists")
+        logger.error("❌ Email already exists or creation failed")
         raise HTTPException(
             status_code=400,
             detail="Email already exists"
@@ -78,7 +80,8 @@ def register(user_data: UserLogin):
         access_token=access_token,
         user_id=user_id,
         email=user_data.email,
-        name="User"
+        name=user_data.name,
+        role=user_data.role
     )
     logger.info(f"📤 Sending response")
     logger.info("=" * 60)
@@ -108,7 +111,8 @@ def login(user_data: UserLogin):
         access_token=access_token,
         user_id=user["id"],
         name=user["name"] or "User",
-        email=user["email"]
+        email=user["email"],
+        role=user.get("role", "user")
     )
 
     logger.info(f"📤 Sending response")

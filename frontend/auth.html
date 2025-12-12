@@ -4,157 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - Esyasoft Assistant</title>
+  <link rel="stylesheet" href="styles/auth.css" />
 
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .auth-container {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 40px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-
-    .auth-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .auth-header h1 {
-      color: #667eea;
-      font-size: 28px;
-      margin-bottom: 10px;
-    }
-
-    .auth-header p {
-      color: #666;
-      font-size: 14px;
-    }
-
-    .tab-buttons {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 30px;
-      background: #f0f0f0;
-      padding: 5px;
-      border-radius: 10px;
-    }
-
-    .tab-btn {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 600;
-      color: #666;
-      transition: all 0.3s;
-    }
-
-    .tab-btn.active {
-      background: white;
-      color: #667eea;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      color: #333;
-      font-weight: 500;
-      font-size: 14px;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      font-size: 15px;
-      transition: border-color 0.3s;
-      outline: none;
-    }
-
-    .form-group input:focus {
-      border-color: #667eea;
-    }
-
-    .submit-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-top: 10px;
-    }
-
-    .submit-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-    }
-
-    .submit-btn:active {
-      transform: translateY(0);
-    }
-
-    .submit-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .error-message {
-      background: #fee;
-      color: #c33;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      display: none;
-    }
-
-    .error-message.show {
-      display: block;
-    }
-
-    .form-tab {
-      display: none;
-    }
-
-    .form-tab.active {
-      display: block;
-    }
-  </style>
+ 
 </head>
 
 <body>
+    <div class="header">
+    <h1>Esyasoft AI CoPilot</h1>
+    
+  </div>
 
   <div class="auth-container">
     <div class="auth-header">
@@ -188,12 +47,25 @@
     <div class="form-tab" id="registerForm">
       <form id="registerFormElement">
         <div class="form-group">
+          <label for="registerName">Full Name</label>
+          <input type="text" id="registerName" required autocomplete="name" placeholder="Enter your full name">
+        </div>
+        <div class="form-group">
           <label for="registerEmail">Email</label>
-          <input type="email" id="registerEmail" required autocomplete="email">
+          <input type="email" id="registerEmail" required autocomplete="email" placeholder="Enter your email">
         </div>
         <div class="form-group">
           <label for="registerPassword">Password</label>
-          <input type="password" id="registerPassword" required autocomplete="new-password">
+          <input type="password" id="registerPassword" required autocomplete="new-password" placeholder="Create a password">
+        </div>
+        <div class="form-group">
+          <label for="registerRole">Role</label>
+          <select id="registerRole" required>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="analyst">Analyst</option>
+          </select>
         </div>
         <button type="submit" class="submit-btn" id="registerBtn">Create Account</button>
       </form>
@@ -259,8 +131,9 @@
         sessionStorage.setItem("token", data.access_token);
         sessionStorage.setItem("user", JSON.stringify({
           id: data.user_id,
-          name: data.name ?? "User",
-          email: data.email
+          name: data.name || "User",
+          email: data.email,
+          role: data.role || "user"
         }));
 
         window.location.href = "./../frontend/index.html";
@@ -279,21 +152,37 @@
       e.preventDefault();
       hideError();
 
-      const email = document.getElementById('registerEmail').value;
+      const name = document.getElementById('registerName').value.trim();
+      const email = document.getElementById('registerEmail').value.trim();
       const password = document.getElementById('registerPassword').value;
+      const role = document.getElementById('registerRole').value;
       const btn = document.getElementById('registerBtn');
+
+      // Validation
+      if (!name) {
+        showError("Please enter your name");
+        return;
+      }
+
+      if (password.length < 6) {
+        showError("Password must be at least 6 characters");
+        return;
+      }
 
       btn.disabled = true;
       btn.textContent = "Creating...";
 
       try {
+        console.log("Sending registration:", { name, email, role });
+
         const res = await fetch(`${API_URL}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ name, email, password, role })
         });
 
         const data = await res.json();
+        console.log("Registration response:", data);
 
         if (!res.ok) {
           showError(data.detail || "Registration failed");
@@ -305,13 +194,15 @@
         sessionStorage.setItem("token", data.access_token);
         sessionStorage.setItem("user", JSON.stringify({
           id: data.user_id,
-          email: data.email
+          name: data.name,
+          email: data.email,
+          role: data.role
         }));
 
         window.location.href = "./../frontend/index.html";
 
       } catch (err) {
-        console.error(err);
+        console.error("Registration error:", err);
         showError("Connection error. Please try again.");
       }
 

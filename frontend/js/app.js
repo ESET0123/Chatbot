@@ -40,7 +40,17 @@ class App {
     const currentUser = authManager.getCurrentUser();
     document.getElementById("nameDisplay").textContent = currentUser.name || "User";
     document.getElementById("emailDisplay").textContent = currentUser.email;
+    this.updateUserAvatar(currentUser.name);
   }
+
+  updateUserAvatar(name) {
+    const avatarElement = document.getElementById("userAvatar");
+    if (avatarElement && name) {
+        // Get first letter of first name
+        const initial = name.trim().charAt(0).toUpperCase();
+        avatarElement.textContent = initial;
+    }
+    }
 
   setupEventListeners() {
     // New chat button

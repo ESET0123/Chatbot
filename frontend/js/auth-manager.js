@@ -49,7 +49,7 @@ class AuthManager {
   }
 
   redirectToLogin() {
-    window.location.href = "../backend/auth.html";
+    window.location.href = "../frontend/auth.html";
   }
 
   getCurrentUser() {

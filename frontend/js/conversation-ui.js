@@ -269,6 +269,40 @@ class ConversationUI {
     if (loader) loader.remove();
   }
 
+  async deleteConversation(conversationId) {
+    if (!this.apiService) return;
+
+    // Show confirmation dialog
+    const conv = this.conversations[conversationId];
+    const title = conv?.title || "this conversation";
+    
+    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting conversation: ${conversationId}`);
+      
+      await this.apiService.deleteConversation(conversationId);
+      
+      // Remove from local storage
+      delete this.conversations[conversationId];
+      
+      // If we deleted the current conversation, create a new one
+      if (this.currentConversationId === conversationId) {
+        this.createNewConversation();
+      } else {
+        this.renderConversationList();
+      }
+      
+      console.log("✅ Conversation deleted successfully");
+      
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      alert("Failed to delete conversation. Please try again.");
+    }
+  }
+
   renderConversationList() {
     this.conversationList.innerHTML = "";
 
@@ -292,11 +326,28 @@ class ConversationUI {
       const preview = title.length > 35 ? title.slice(0, 35) + "..." : title;
       
       div.innerHTML = `
-        <div class="conv-title">${preview}</div>
-        <div class="conv-date">${this.formatDate(conv.last_updated || conv.created_at)}</div>
+        <div class="conv-content" data-id="${id}">
+          <div class="conv-title">${preview}</div>
+          <div class="conv-date">${this.formatDate(conv.last_updated || conv.created_at)}</div>
+        </div>
+        <button class="conv-delete-btn" data-id="${id}" title="Delete conversation">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4m2 0v9.333a1.333 1.333 0 0 1-1.334 1.334H4.667a1.333 1.333 0 0 1-1.334-1.334V4h9.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       `;
       
-      div.onclick = () => this.loadConversation(id);
+      // Add click handler for conversation content
+      const contentDiv = div.querySelector('.conv-content');
+      contentDiv.onclick = () => this.loadConversation(id);
+      
+      // Add click handler for delete button
+      const deleteBtn = div.querySelector('.conv-delete-btn');
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation(); // Prevent triggering conversation load
+        this.deleteConversation(id);
+      };
+      
       this.conversationList.appendChild(div);
     });
   }

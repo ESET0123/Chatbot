@@ -125,6 +125,19 @@ class ApiService {
     return await res.json();
   }
 
+  async deleteConversation(conversationId) {
+  const res = await fetch(`${API_URL}/conversations/${conversationId}`, {
+    method: "DELETE",
+    headers: this.getHeaders(),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete conversation");
+  }
+
+  return await res.json();
+}
+
   async clearContext(conversationId) {
     const res = await fetch(`${API_URL}/context/${conversationId}`, {
       method: "DELETE",
