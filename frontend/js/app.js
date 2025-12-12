@@ -81,8 +81,19 @@ class App {
 
     // Sidebar toggle
     document.getElementById("toggleSidebar").onclick = () => {
-      document.getElementById("sidebar").classList.toggle("collapsed");
-    };
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("toggleSidebar");
+
+  sidebar.classList.toggle("collapsed");
+
+  // Update button direction
+  if (!sidebar.classList.contains("collapsed")) {
+    toggleBtn.textContent = "<>";   // Sidebar collapsed → show expand arrows
+  } else {
+    toggleBtn.textContent = ">>";   // Sidebar open → show collapse arrows
+  }
+};
+
 
     // Logout
     document.getElementById("logoutBtn").onclick = (e) => {

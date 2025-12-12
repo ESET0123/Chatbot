@@ -378,7 +378,7 @@ body.dark .messages::-webkit-scrollbar-thumb {
 
 /* Individual Messages */
 .message {
-  max-width: 75%;
+  /* max-width: 75%; */
   padding: 16px 20px;
   border-radius: 12px;
   font-size: 15px;
@@ -404,6 +404,7 @@ body.dark .messages::-webkit-scrollbar-thumb {
   border: 1px solid #e5e7eb;
   border-top-left-radius: 4px;
   margin-right: auto;
+  width: fit-content;
 }
 
 /* subtle eco tint for bot in dark */
@@ -428,9 +429,6 @@ body.dark .message.bot {
   top: 0;
   width: 0;
   height: 0;
-  border-left: 8px solid #16a34a; /* arrow in green */
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
 }
 
 body.dark .message.user {

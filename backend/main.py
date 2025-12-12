@@ -285,3 +285,39 @@ def get_conversation_messages(
             "conversation_id": conversation_id,
             "messages": messages
         }
+
+@app.get("/debug/routes")
+def list_routes():
+    """List all registered routes (for debugging)"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'methods'):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods),
+                "name": route.name
+            })
+    return {"routes": routes}
+
+@app.delete("/conversations/{conversation_id}")
+def delete_conversation(
+    conversation_id: str, 
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a conversation and all its messages"""
+    logger.info("=" * 60)
+    logger.info(f"🗑️ DELETE /conversations/{conversation_id}")
+    logger.info(f"User: {current_user.id}")
+    
+    if not verify_conversation_owner(conversation_id, current_user.id):
+        logger.error("❌ Access denied")
+        raise HTTPException(403, "Access denied")
+    
+    try:
+        clear_conversation(current_user.id, conversation_id)
+        logger.info("✅ Conversation deleted successfully")
+        logger.info("=" * 60)
+        return {"message": "Conversation deleted successfully"}
+    except Exception as e:
+        logger.error(f"❌ Error deleting conversation: {e}")
+        raise HTTPException(500, "Failed to delete conversation")
