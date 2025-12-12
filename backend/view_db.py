@@ -4,18 +4,39 @@ from db import get_table_schema, get_tables_with_columns
 conn = sqlite3.connect("mydata.db")
 cur = conn.cursor()
 
-# List all tables
-cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tables = cur.fetchall()
-print("Tables:", tables)
-# print("Schema: ",get_table_schema("users"))
-print("columns of all tables: ",get_tables_with_columns())
+cur.execute(
+    """
+    CREATE TABLE IF NOT EXISTS conversation_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        conversation_id TEXT NOT NULL,
+        query TEXT NOT NULL,
+        sql TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+    """
+)
 
-# Fetch data from 'users'
-cur.execute("SELECT * FROM token_count;")
-# cur.execute("SELECT * FROM forecasted_table;")
-data = cur.fetchall()
-print("Data: ", data)
+cur.execute(
+    """
+    CREATE INDEX IF NOT EXISTS idx_conversation_history_user_conv 
+        ON conversation_history(user_id, conversation_id);
+    """
+)
+
+# # List all tables
+# cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+# tables = cur.fetchall()
+# print("Tables:", tables)
+# # print("Schema: ",get_table_schema("users"))
+# print("columns of all tables: ",get_tables_with_columns())
+
+# # Fetch data from 'users'
+# cur.execute("SELECT * FROM token_count;")
+# # cur.execute("SELECT * FROM forecasted_table;")
+# data = cur.fetchall()
+# print("Data: ", data)
 
 # rows = cur.fetchall()
 # for row in rows:

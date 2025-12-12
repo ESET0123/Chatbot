@@ -1,9 +1,9 @@
 import sqlite3
 
-DB_PATH = "mydata.db"
+DB_PATH = "./../mydata.db"
 
-# Function to run any SQL query
 def run_sql(sql: str):
+    """Execute SQL query and return results"""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
@@ -16,8 +16,8 @@ def run_sql(sql: str):
         conn.close()
         return {"error": str(e)}
 
-# Function to get list of all user tables (excluding system tables)
 def get_user_tables():
+    """Get list of all user tables (excluding system tables)"""
     sql = """
     SELECT name 
     FROM sqlite_master 
@@ -39,12 +39,13 @@ def get_user_tables():
     
     return user_tables
 
-# Function to get schema of a specific table
 def get_table_schema(table_name: str):
+    """Get schema of a specific table"""
     sql = f"PRAGMA table_info({table_name})"
     return run_sql(sql)
 
 def get_tables_with_columns():
+    """Get all tables with their columns"""
     tables = get_user_tables()
     print(f"User tables: {tables}")
     

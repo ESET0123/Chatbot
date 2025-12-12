@@ -65,9 +65,6 @@ def nl_to_sql(query: str, db_content: str, conversation_history: list = None):
         # Clean up the SQL
         sql = sql.replace("```sql", "").replace("```", "").strip()
         
-        # Normalize common table name issues
-        # sql = sql.replace("your_table", "forecasted_table")
-        
         print("Generated SQL with context:", sql)
         return sql
 

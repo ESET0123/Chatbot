@@ -828,3 +828,41 @@ body.dark .chat-welcome h2 {
 body.dark .chat-welcome p {
   color: #9ca3af;
 }
+
+.conversation-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.conversation-item:hover {
+  background: var(--bg-hover);
+  transform: translateX(4px);
+}
+
+.conversation-item.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.conv-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.conv-date {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.conversation-item.active {
+  background: var(--primary-color, #667eea);
+  color: white;
+}
+
+.conversation-item.active .conv-date {
+  color: rgba(255, 255, 255, 0.9);
+}

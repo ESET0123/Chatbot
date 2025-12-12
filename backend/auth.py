@@ -31,7 +31,7 @@ class User(BaseModel):
 # Database operations
 def create_user(email: str, password: str) -> Optional[int]:
     """Create a new user in the database"""
-    conn = sqlite3.connect("mydata.db")
+    conn = sqlite3.connect("./../mydata.db")
     cur = conn.cursor()
     
     try:
@@ -49,7 +49,7 @@ def create_user(email: str, password: str) -> Optional[int]:
 
 def get_user_by_email(email: str) -> Optional[dict]:
     """Get user by email"""
-    conn = sqlite3.connect("mydata.db")
+    conn = sqlite3.connect("./../mydata.db")
     cur = conn.cursor()
     
     cur.execute(
@@ -72,7 +72,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
 
 def get_user_by_id(user_id: int) -> Optional[dict]:
     """Get user by ID"""
-    conn = sqlite3.connect("mydata.db")
+    conn = sqlite3.connect("./../mydata.db")
     cur = conn.cursor()
     
     cur.execute(
@@ -126,7 +126,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # User-specific conversation management
 def link_conversation_to_user(conversation_id: str, user_id: int):
     """Link a conversation to a user"""
-    conn = sqlite3.connect("mydata.db")
+    conn = sqlite3.connect("./../mydata.db")
     cur = conn.cursor()
     
     try:
@@ -142,23 +142,50 @@ def link_conversation_to_user(conversation_id: str, user_id: int):
 
 def verify_conversation_owner(conversation_id: str, user_id: int) -> bool:
     """Verify that a conversation belongs to a user"""
-    conn = sqlite3.connect("mydata.db")
+    conn = sqlite3.connect("./../mydata.db")
     cur = conn.cursor()
     
-    cur.execute(
-        "SELECT user_id FROM user_conversations WHERE conversation_id = ?",
-        (conversation_id,)
-    )
-    row = cur.fetchone()
-    conn.close()
+    try:
+        cur.execute(
+            "SELECT user_id FROM user_conversations WHERE conversation_id = ?",
+            (conversation_id,)
+        )
+        row = cur.fetchone()
+        
+        if row is None:
+            # Conversation doesn't exist yet, allow creation
+            return True
+        
+        if row[0] == user_id:
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"Error verifying conversation owner: {e}")
+        return False
+    finally:
+        conn.close()
+
+def link_conversation_to_user(conversation_id: str, user_id: int):
+    """Link a conversation to a user"""
+    conn = sqlite3.connect("./../mydata.db")
+    cur = conn.cursor()
     
-    if row and row[0] == user_id:
-        return True
-    return False
+    try:
+        cur.execute(
+            "INSERT OR IGNORE INTO user_conversations (conversation_id, user_id) VALUES (?, ?)",
+            (conversation_id, user_id)
+        )
+        conn.commit()
+        print(f"✅ Linked conversation {conversation_id} to user {user_id}")
+    except Exception as e:
+        print(f"Error linking conversation: {e}")
+    finally:
+        conn.close()
 
 def get_user_conversations(user_id: int) -> list:
     """Get all conversation IDs for a user"""
-    conn = sqlite3.connect("mydata.db")
+    conn = sqlite3.connect("./../mydata.db")
     cur = conn.cursor()
     
     cur.execute(

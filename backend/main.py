@@ -1,11 +1,22 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import logging
 
+from conversation_manager import (
+    init_user_context,
+    get_conversation_history,
+    save_conversation_exchange,
+    clear_conversation,
+    get_user_all_conversations,
+    get_conversation_messages_with_results
+)
+
 from db import run_sql, get_tables_with_columns
 from nl_to_sql import nl_to_sql
+from chart_generator import should_generate_chart, generate_chart_config
+
 from auth import (
     get_current_user, create_user, get_user_by_email,
     create_access_token, User, UserLogin, Token,
@@ -31,9 +42,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory per-user context
-user_conversation_contexts = {}
 
+# Request Models
 class ConversationExchange(BaseModel):
     query: str
     sql: str
@@ -42,97 +52,6 @@ class Query(BaseModel):
     query: str
     conversation_id: Optional[str] = None
     conversation_history: Optional[List[ConversationExchange]] = None
-
-
-# ----------- CHART DECISION LOGIC -----------
-def should_generate_chart(query: str, result: dict) -> bool:
-    if "error" in result or not result.get("rows"):
-        return False
-
-    chart_keywords = [
-        'chart', 'graph', 'plot', 'visualize', 'visual',
-        'trend', 'compare', 'comparison', 'distribution',
-        'over time', 'by month', 'by year', 'by category'
-    ]
-
-    q = query.lower()
-    for k in chart_keywords:
-        if k in q:
-            return True
-
-    # auto-detect numeric 2-column output
-    if len(result["columns"]) == 2 and len(result["rows"]) > 1:
-        try:
-            float(result["rows"][0][1])
-            return True
-        except:
-            pass
-
-    return False
-
-
-def generate_chart_config(result: dict, query: str):
-    columns = result["columns"]
-    rows = result["rows"]
-
-    if len(columns) < 2 or not rows:
-        return None
-
-    labels = [str(row[0]) for row in rows]
-
-    q = query.lower()
-    chart_type = "bar"
-    if "line" in q or "trend" in q or "over time" in q:
-        chart_type = "line"
-    elif "pie" in q:
-        chart_type = "pie"
-
-    colors = [
-        'rgba(102, 126, 234, 0.8)',
-        'rgba(118, 75, 162, 0.8)',
-        'rgba(240, 147, 251, 0.8)',
-        'rgba(245, 87, 108, 0.8)',
-        'rgba(67, 206, 162, 0.8)',
-    ]
-
-    datasets = []
-    for i in range(1, len(columns)):
-        data = []
-        for row in rows:
-            try:
-                data.append(float(row[i]))
-            except:
-                data.append(0)
-
-        datasets.append({
-            'label': columns[i],
-            'data': data,
-            'backgroundColor': colors[i % len(colors)],
-            'borderColor': colors[i % len(colors)].replace("0.8", "1"),
-            'borderWidth': 2
-        })
-
-    return {
-        "type": chart_type,
-        "data": {
-            "labels": labels,
-            "datasets": datasets
-        },
-        "options": {
-            "responsive": True,
-            "maintainAspectRatio": False,
-            "plugins": {
-                "legend": {
-                    "display": len(datasets) > 1,
-                    "position": "top"
-                },
-                "title": {"display": False}
-            },
-            "scales": {
-                "y": {"beginAtZero": True}
-            } if chart_type != "pie" else {}
-        }
-    }
 
 
 # ----------- AUTH ENDPOINTS -----------
@@ -158,9 +77,10 @@ def register(user_data: UserLogin):
     response = Token(
         access_token=access_token,
         user_id=user_id,
-        email=user_data.email
+        email=user_data.email,
+        name="User"
     )
-    logger.info(f"📤 Sending response: {response}")
+    logger.info(f"📤 Sending response")
     logger.info("=" * 60)
     return response
 
@@ -187,11 +107,11 @@ def login(user_data: UserLogin):
     response = Token(
         access_token=access_token,
         user_id=user["id"],
-        name=user["name"] or "guest",
+        name=user["name"] or "User",
         email=user["email"]
     )
 
-    logger.info(f"📤 Sending response: {response}")
+    logger.info(f"📤 Sending response")
     logger.info("=" * 60)
     return response
 
@@ -218,25 +138,22 @@ def ask(payload: Query, current_user: User = Depends(get_current_user)):
     nl_query = payload.query
     conversation_id = payload.conversation_id
 
-    # Init user memory
-    if user_id not in user_conversation_contexts:
-        logger.info(f"Creating new context storage for user {user_id}")
-        user_conversation_contexts[user_id] = {}
+    # Initialize user context
+    init_user_context(user_id)
 
-    # Manage conversation context
+    # Get conversation history
     if conversation_id:
         logger.info(f"Using conversation ID: {conversation_id}")
 
-        if conversation_id not in user_conversation_contexts[user_id]:
-            if not verify_conversation_owner(conversation_id, user_id):
-                logger.info("Creating new conversation context")
-                user_conversation_contexts[user_id][conversation_id] = []
-                link_conversation_to_user(conversation_id, user_id)
+        # Verify or create conversation ownership
+        if not verify_conversation_owner(conversation_id, user_id):
+            logger.info("Creating new conversation context")
+            link_conversation_to_user(conversation_id, user_id)
 
-        conversation_history = user_conversation_contexts[user_id][conversation_id]
+        conversation_history = get_conversation_history(user_id, conversation_id)
         logger.info(f"Conversation history length: {len(conversation_history)}")
-
     else:
+        # Use provided history if no conversation_id
         conversation_history = []
         if payload.conversation_history:
             conversation_history = [
@@ -245,12 +162,12 @@ def ask(payload: Query, current_user: User = Depends(get_current_user)):
             ]
             logger.info(f"Using provided history: {len(conversation_history)}")
 
-    # DB schema
+    # Get database schema
     logger.info("📊 Getting database schema...")
     db_content = get_tables_with_columns()
     logger.info(f"Schema retrieved: {db_content}")
 
-    # SQL generation
+    # Generate SQL
     logger.info("🤖 Generating SQL...")
     sql_query = nl_to_sql(nl_query, db_content, conversation_history[-7:])
     logger.info(f"Generated SQL: {sql_query}")
@@ -260,18 +177,13 @@ def ask(payload: Query, current_user: User = Depends(get_current_user)):
     result = run_sql(sql_query)
     logger.info(f"Query result: {len(result.get('rows', []))} rows")
 
-    # Save context
+    # Save to conversation context
     if conversation_id:
         logger.info("Saving to conversation context...")
-        user_conversation_contexts[user_id][conversation_id].append({
-            "query": nl_query,
-            "sql": sql_query
-        })
-        user_conversation_contexts[user_id][conversation_id] = \
-            user_conversation_contexts[user_id][conversation_id][-7:]
-        logger.info(f"Context updated: {len(user_conversation_contexts[user_id][conversation_id])} items")
+        save_conversation_exchange(user_id, conversation_id, nl_query, sql_query)
+        logger.info("Context updated")
 
-    # Chart check
+    # Check if should generate chart
     if should_generate_chart(nl_query, result):
         logger.info("📈 Generating chart...")
         chart_config = generate_chart_config(result, nl_query)
@@ -296,10 +208,21 @@ def ask(payload: Query, current_user: User = Depends(get_current_user)):
 # ----------- CONVERSATION APIs -----------
 @app.get("/conversations")
 def list_conversations(current_user: User = Depends(get_current_user)):
-    logger.info("📋 /conversations HIT")
-    conv_ids = get_user_conversations(current_user.id)
-    logger.info(f"Found {len(conv_ids)} conversations")
-    return {"conversations": conv_ids}
+    """Get all conversations for the current user"""
+    logger.info("=" * 60)
+    logger.info(f"📋 /conversations HIT for user {current_user.id}")
+    
+    # Initialize tables if needed
+    init_user_context(current_user.id)
+    
+    conversations = get_user_all_conversations(current_user.id)
+    logger.info(f"Found {len(conversations)} conversations")
+    
+    for conv in conversations:
+        logger.info(f"  - {conv['conversation_id']}: {conv['title']}")
+    
+    logger.info("=" * 60)
+    return {"conversations": conversations}
 
 
 @app.get("/context/{conversation_id}")
@@ -310,7 +233,7 @@ def get_context(conversation_id: str, current_user: User = Depends(get_current_u
     if not verify_conversation_owner(conversation_id, user_id):
         raise HTTPException(403, "Access denied")
 
-    ctx = user_conversation_contexts.get(user_id, {}).get(conversation_id, [])
+    ctx = get_conversation_history(user_id, conversation_id)
     logger.info(f"Context size: {len(ctx)}")
     return {"conversation_id": conversation_id, "context": ctx}
 
@@ -323,7 +246,38 @@ def clear_context(conversation_id: str, current_user: User = Depends(get_current
     if not verify_conversation_owner(conversation_id, user_id):
         raise HTTPException(403, "Access denied")
 
-    if user_id in user_conversation_contexts:
-        user_conversation_contexts[user_id].pop(conversation_id, None)
-
+    clear_conversation(user_id, conversation_id)
     return {"message": "Context cleared"}
+
+@app.get("/conversations")
+def list_conversations(current_user: User = Depends(get_current_user)):
+    """Get all conversations for the current user"""
+    logger.info(f"📋 /conversations HIT for user {current_user.id}")
+    
+    conversations = get_user_all_conversations(current_user.id)
+    logger.info(f"Found {len(conversations)} conversations")
+    
+    return {"conversations": conversations}
+
+@app.get("/conversations/{conversation_id}/messages")
+def get_conversation_messages(
+    conversation_id: str, 
+    current_user: User = Depends(get_current_user)
+    ):
+        """Get all messages in a conversation with their results"""
+        logger.info("=" * 60)
+        logger.info(f"📖 /conversations/{conversation_id}/messages HIT")
+        logger.info(f"User: {current_user.id}")
+        
+        if not verify_conversation_owner(conversation_id, current_user.id):
+            logger.error("❌ Access denied")
+            raise HTTPException(403, "Access denied")
+        
+        messages = get_conversation_messages_with_results(current_user.id, conversation_id)
+        logger.info(f"Retrieved {len(messages)} messages")
+        logger.info("=" * 60)
+        
+        return {
+            "conversation_id": conversation_id,
+            "messages": messages
+        }
